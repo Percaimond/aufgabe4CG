@@ -1,6 +1,6 @@
 #include <iostream>
 #include <memory>
-#define DBL_MAX 1.7976931348623158e+308
+#include "scene.h"
 #include "sceneobject.h"
 
 // TODO set the test according to your current exercise.
@@ -31,20 +31,23 @@ bool trace(const Ray &ray,
     // If any object got hit, return the one closest to the camera as 'hitObject'.
     // END TODO
     ///////////
+    double currentNearest = 2147483647;
+
     for (unsigned i=0; i < objects.size(); i++) {
+        double old_t_near = t_near;
         if((*objects[i]).intersect(ray,t_near)){
             //std::cout << "HIT" << std::endl;
-            hitObject = objects[i];
+            if(currentNearest > t_near) {
+                currentNearest = t_near;
+                hitObject = objects[i];
+            } else {
+                t_near = old_t_near;
+            }
         };
     }
     //std::cout << "NOT HIT" << std::endl;
     return (hitObject != nullptr);
 }
-
-
-
-
-
 
 /**
  * @brief Cast a ray into the scene. If the ray hits at least one object,
@@ -54,29 +57,30 @@ bool trace(const Ray &ray,
  * @return The color of a hit object that is closest to the camera.
  *         Return dark blue if no object was hit.
  */
-
 Vec3d castRay(const Ray &ray, const std::vector<std::shared_ptr<SceneObject>> &objects)
 {
-	// set the background color as dark blue
-	Vec3d hitColor(0, 0, 0.2);
-	std::shared_ptr<SceneObject> hitObject = nullptr;
-	double t = DBL_MAX;
-	//std::cout << t << std::endl;
-	///////////
-	// TODO: 2
-	// Trace the ray by calling 'trace(...)'. If an object gets hit, calculate the hit point
-	// and retrieve the surface color 'hitColor' from the 'hitObject'.
-	// cf. lecture slide 54
-	// END TODO
-	///////////
-	if (trace(ray, objects, t, hitObject)) {
-		hitColor = hitObject.get()->getSurfaceColor(ray.dir * t);
-	}
+    // set the background color as dark blue
+    Vec3d hitColor(0, 0, 0.2);
 
-	return hitColor;
+    ///////////
+    // TODO: 2.1.2
+    // Trace the ray by calling 'trace(...)'. If an object gets hit, calculate the hit point
+    // and retrieve the surface color 'hitColor' from the 'hitObject'.
+    // cf. lecture slide 44
+    // END TODO
+    ///////////
+    double t_near;
+    std::shared_ptr<SceneObject> hitObject;
+    //std::cout << ray.dir << std::endl;
+    if(trace(ray,objects,t_near,hitObject)){
+        //calculate hit point
+        Vec3d surface_point = t_near * ray.dir;
+        //std::cout << surface_point << std::endl;
+        hitColor = (*hitObject).getSurfaceColor(surface_point);
+        //std::cout << hitColor << std::endl;
+    }
+    return hitColor;
 }
-
-
 
 /**
  * @brief The rendering method, loop over all pixels in the framebuffer, shooting
@@ -86,12 +90,11 @@ Vec3d castRay(const Ray &ray, const std::vector<std::shared_ptr<SceneObject>> &o
  */
 void render(const Vec3i viewport, const std::vector<std::shared_ptr<SceneObject>> &objects)
 {
-
     std::vector<Vec3d> framebuffer(static_cast<size_t>(viewport[0] * viewport[1]));
 
     // camera position in world coordinates (in origin)
     const Vec3d cameraPos(0., 0., 0.);
-    // view plane parameters (FoV: ~53.13Â°)
+    // view plane parameters (FoV: ~53.13°)
     const double l = -1.;   // left
     const double r = +1.;   // right
     const double b = -1.;   // bottom
@@ -130,32 +133,30 @@ void render(const Vec3i viewport, const std::vector<std::shared_ptr<SceneObject>
             shoot.origin = cameraPos;
             shoot.dir = s;
 
-            
+
             framebuffer[y*WIDTH + x] = (castRay(shoot,objects));
         }
     }
     std::cout << framebuffer.size() << std::endl;
 
+    // save the framebuffer an a PPM image
+    saveAsPPM("./result.ppm", viewport, framebuffer);
 
-
-	// save the framebuffer an a PPM image
-	saveAsPPM("./result.ppm", viewport, framebuffer);
-
-	// Compare the resulting image to the reference images.
-	// Enable the test according to your current exercise.
-	// You may need to adapt the given path according to your build setup!
-	if (TEST_RAY_GENERATION)
-	{
-		// Check your ray generation and setup against the reference.
-		comparePPM("../reference_rayGeneration.ppm",
-			"ray generation test", framebuffer);
-	}
-	else if (TEST_SPHERE_INTERSECT)
-	{
-		// Check your ray-sphere intersection against the reference.
-		comparePPM("../reference_sphereIntersection.ppm",
-			"sphere intersection test", framebuffer);
-	}
+    // Compare the resulting image to the reference images.
+    // Enable the test according to your current exercise.
+    // You may need to adapt the given path according to your build setup!
+    if (TEST_RAY_GENERATION)
+    {
+        // Check your ray generation and setup against the reference.
+        comparePPM("../reference_rayGeneration.ppm",
+                   "ray generation test", framebuffer);
+    }
+    else if (TEST_SPHERE_INTERSECT)
+    {
+        // Check your ray-sphere intersection against the reference.
+        comparePPM("../reference_sphereIntersection.ppm",
+                   "sphere intersection test", framebuffer);
+    }
 }
 
 /**
@@ -165,28 +166,38 @@ void render(const Vec3i viewport, const std::vector<std::shared_ptr<SceneObject>
  */
 int main()
 {
-	std::vector<std::shared_ptr<SceneObject>> objects;
+ /*   std::vector<std::shared_ptr<SceneObject>> objects;
 
-	// random number generation
-	std::mt19937 mtGen(SEED);
-	std::uniform_real_distribution<double> distrib(-0.5, 0.5);
+    // random number generation
+    std::mt19937 mtGen(SEED);
+    std::uniform_real_distribution<double> distrib(-0.5, 0.5);
 
-	// generate a scene containing one plane and a bunch of pseudo randomly distributed spheres
-	Vec3d planeNormal(0., 1., 0.);
-	planeNormal.normalize();
-	std::shared_ptr<SceneObject> plane = std::make_shared<Plane>(Vec3d(0., -1., 5.), planeNormal);
-	objects.push_back(std::shared_ptr<SceneObject>(plane));
+    // generate a scene containing one plane and a bunch of pseudo randomly distributed spheres
+    Vec3d planeNormal(0., 1., 0.);
+    planeNormal.normalize();
+    std::shared_ptr<SceneObject> plane = std::make_shared<Plane>(Vec3d(0., -1., 5.), planeNormal);
+    objects.push_back(std::shared_ptr<SceneObject>(plane));
 
-	const int numSpheres = 32;
-	for (int i = 0; i < numSpheres; ++i)
-	{
-		const Vec3d randPos(distrib(mtGen)*10., distrib(mtGen)*10., -12. + distrib(mtGen)*-10.);
-		const double randRadius = (0.5 + distrib(mtGen));
-		objects.push_back(std::shared_ptr<SceneObject>(std::make_shared<Sphere>(randPos, randRadius)));
-	}
+    const int numSpheres = 32;
+    for (int i = 0; i < numSpheres; ++i)
+    {
+        const Vec3d randPos(distrib(mtGen)*10., distrib(mtGen)*10., -12. + distrib(mtGen)*-10.);
+        const double randRadius = (0.5 + distrib(mtGen));
+        objects.push_back(std::shared_ptr<SceneObject>(std::make_shared<Sphere>(randPos, randRadius)));
+    }
 
-	const Vec3i viewport(WIDTH, HEIGHT, 0);
-	render(viewport, objects);
+    const Vec3i viewport(WIDTH, HEIGHT, 0);
+    render(viewport, objects);
 
-	return 0;
+    return 0;*/
+        // Generate the scene
+    const auto objects = create_scene();
+
+    // Start rendering
+    const Vec3i viewport(WIDTH, HEIGHT, 0);
+
+    render(viewport, objects);
+
+    return 0;
+
 }
