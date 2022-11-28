@@ -6,6 +6,7 @@
 #include <cmath>
 #include <utility>
 
+
 /**
  * @brief SceneObject::SceneObject
  */
@@ -66,14 +67,36 @@ Vec3d Plane::getSurfaceColor(const Vec3d &p_hit) const
  */
 bool Sphere::intersect(const Ray &ray, double &t) const
 {
-    ///////////
-    // TODO
-    // Implement a ray-sphere intersection test.
-    //
-    // cf., lecture slides 41ff
-    return false;
-    // END TODO
-    ///////////
+double a, b, c, D;
+
+	a = ray.dir.dot(ray.dir);
+	b = (2.0 * ray.dir).dot(ray.origin - this->_center);
+	c = (ray.origin - this->_center).dot(ray.origin - this->_center) - (_radius * _radius);
+	D = pow(b,2.) - (4 * a * c);
+
+	if (D > 0) {
+		double t1, t2;
+		t1 = ((-1)*b + sqrt(D)) / (2 * a);
+		t2 = ((-1)*b - sqrt(D)) / (2 * a);
+		if (t1 < t2) {
+			t = t1;
+		}
+		else
+		{
+			t = t2;
+		}
+		return true;
+	}
+	else if (D == 0)
+	{
+		t = -b / (2 * a);
+		return true;
+
+	}
+	else
+	{
+		return false;
+	}
 }
 
 /**
